@@ -9,7 +9,8 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 Thumbs.db
-uploads/
+uploads/**
+!uploads/*.ts
 coverage/
 .nyc_output/
 .vscode/
