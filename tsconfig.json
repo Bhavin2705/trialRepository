@@ -1,12 +1,12 @@
 {
     "compilerOptions": {
-        "target": "ES2020",
-        "module": "commonjs",
+        "target": "ES2022",
+        "module": "CommonJS",
         "lib": [
-            "ES2020"
+            "ES2022"
         ],
-        "outDir": "./dist",
-        "rootDir": "./src",
+        "outDir": "dist",
+        "rootDir": "src",
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,
@@ -19,19 +19,13 @@
         "noImplicitAny": true,
         "noImplicitReturns": true,
         "noImplicitThis": true,
-        "noUnusedLocals": false,
-        "noUnusedParameters": false,
-        "exactOptionalPropertyTypes": false,
         "noImplicitOverride": true,
-        "noPropertyAccessFromIndexSignature": false,
         "moduleResolution": "node",
         "allowSyntheticDefaultImports": true,
-        "experimentalDecorators": true,
-        "emitDecoratorMetadata": true,
-        "types": [
-            "node"
+        "typeRoots": [
+            "./node_modules/@types"
         ],
-        "baseUrl": "./src",
+        "baseUrl": "src",
         "paths": {
             "@/*": [
                 "*"
@@ -48,11 +42,12 @@
         }
     },
     "include": [
-        "src/**/*"
+        "src"
     ],
     "exclude": [
         "node_modules",
         "dist",
+        "**/__tests__/**",
         "**/*.test.ts",
         "**/*.spec.ts"
     ]

@@ -49,7 +49,8 @@ export const env: Environment = {
     PORT: parseInt(process.env['PORT'] || '5000', 10),
     MONGODB_URI: process.env['MONGODB_URI']!,
     JWT_SECRET: process.env['JWT_SECRET']!,
-    JWT_EXPIRE: process.env['JWT_EXPIRE'] || '30d',
+    // use short-lived access tokens by default (15 minutes)
+    JWT_EXPIRE: process.env['JWT_EXPIRE'] || '15m',
     COOKIE_EXPIRE: parseInt(process.env['COOKIE_EXPIRE'] || '30', 10),
     EMAIL_FROM: process.env['EMAIL_FROM'] || 'noreply@interviewmirror.com',
     SMTP_HOST: process.env['SMTP_HOST'] || 'smtp.gmail.com',

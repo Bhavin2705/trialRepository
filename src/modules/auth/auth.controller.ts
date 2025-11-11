@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import { env } from '../../core/env';
+import { verifyRefreshToken } from '../../shared/utils/jwt';
+import UsersRepository from '../users/users.repo';
+import AuthRepository from './auth.repo';
 import { AuthService } from './auth.service';
 
 export class AuthController {
@@ -12,6 +15,27 @@ export class AuthController {
                 password,
                 displayName
             });
+
+            // set cookies for access & refresh tokens
+            const accessCookieOptions = {
+                expires: new Date(
+                    Date.now() + env.COOKIE_EXPIRE * 24 * 60 * 60 * 1000
+                ),
+                httpOnly: true,
+                secure: env.NODE_ENV === 'production',
+                // allow cross-origin requests in development to send cookies
+                sameSite: env.NODE_ENV === 'production' ? 'strict' as const : 'lax' as const
+            };
+
+            const refreshCookieOptions = {
+                expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                httpOnly: true,
+                secure: env.NODE_ENV === 'production',
+                sameSite: env.NODE_ENV === 'production' ? 'strict' as const : 'lax' as const
+            };
+
+            if (result.token) res.cookie('jwt', result.token, accessCookieOptions);
+            if ((result as any).refreshToken) res.cookie('refreshToken', (result as any).refreshToken, refreshCookieOptions);
 
             res.status(201).json({
                 success: true,
@@ -38,17 +62,28 @@ export class AuthController {
                 ),
                 httpOnly: true,
                 secure: env.NODE_ENV === 'production',
-                sameSite: 'strict' as const
+                sameSite: env.NODE_ENV === 'production' ? 'strict' as const : 'lax' as const
             };
 
             res.cookie('jwt', result.token, cookieOptions);
 
+            const refreshCookieOptions = {
+                expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                httpOnly: true,
+                secure: env.NODE_ENV === 'production',
+                sameSite: env.NODE_ENV === 'production' ? 'strict' as const : 'lax' as const
+            };
+
+            if ((result as any).refreshToken) {
+                res.cookie('refreshToken', (result as any).refreshToken, refreshCookieOptions);
+            }
+
+            // return user only; tokens are in cookies
             res.status(200).json({
                 success: true,
                 message: 'Login successful',
                 data: {
-                    user: result.user,
-                    token: result.token
+                    user: result.user
                 }
             });
         } catch (error: any) {
@@ -60,15 +95,33 @@ export class AuthController {
     }
 
     static async logout(req: Request, res: Response) {
-        res.cookie('jwt', '', {
-            expires: new Date(Date.now() + 10 * 1000),
-            httpOnly: true
-        });
+        try {
+            const refreshToken = req.cookies?.refreshToken;
+            if (refreshToken) {
+                const decoded: any = verifyRefreshToken(refreshToken);
+                if (decoded && decoded.userId) {
+                    await AuthRepository.removeRefreshToken(decoded.userId, refreshToken);
+                }
+            }
 
-        res.status(200).json({
-            success: true,
-            message: 'Logged out successfully'
-        });
+            // clear cookies
+            res.cookie('jwt', '', {
+                expires: new Date(0),
+                httpOnly: true
+            });
+
+            res.cookie('refreshToken', '', {
+                expires: new Date(0),
+                httpOnly: true
+            });
+
+            res.status(200).json({
+                success: true,
+                message: 'Logged out successfully'
+            });
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: 'Error during logout' });
+        }
     }
 
     static async verifyEmail(req: Request, res: Response) {
@@ -113,24 +166,29 @@ export class AuthController {
 
             const result = await AuthService.resetUserPassword(token, password);
 
-            const cookieOptions = {
+            const accessCookieOptions = {
                 expires: new Date(
                     Date.now() + env.COOKIE_EXPIRE * 24 * 60 * 60 * 1000
                 ),
                 httpOnly: true,
                 secure: env.NODE_ENV === 'production',
-                sameSite: 'strict' as const
+                sameSite: env.NODE_ENV === 'production' ? 'strict' as const : 'lax' as const
             };
 
-            res.cookie('jwt', result.token, cookieOptions);
+            const refreshCookieOptions = {
+                expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                httpOnly: true,
+                secure: env.NODE_ENV === 'production',
+                sameSite: env.NODE_ENV === 'production' ? 'strict' as const : 'lax' as const
+            };
+
+            if (result.token) res.cookie('jwt', result.token, accessCookieOptions);
+            if ((result as any).refreshToken) res.cookie('refreshToken', (result as any).refreshToken, refreshCookieOptions);
 
             res.status(200).json({
                 success: true,
                 message: 'Password reset successful',
-                data: {
-                    user: result.user,
-                    token: result.token
-                }
+                data: { user: result.user }
             });
         } catch (error: any) {
             res.status(400).json({
@@ -142,13 +200,31 @@ export class AuthController {
 
     static async refreshToken(req: Request, res: Response) {
         try {
-            const { refreshToken } = req.body;
+            const refreshToken = req.cookies?.refreshToken || req.body.refreshToken;
             const result = await AuthService.refreshUserToken(refreshToken);
+
+            const accessCookieOptions = {
+                expires: new Date(
+                    Date.now() + env.COOKIE_EXPIRE * 24 * 60 * 60 * 1000
+                ),
+                httpOnly: true,
+                secure: env.NODE_ENV === 'production',
+                sameSite: 'strict' as const
+            };
+
+            const refreshCookieOptions = {
+                expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                httpOnly: true,
+                secure: env.NODE_ENV === 'production',
+                sameSite: 'strict' as const
+            };
+
+            if (result.token) res.cookie('jwt', result.token, accessCookieOptions);
+            if ((result as any).refreshToken) res.cookie('refreshToken', (result as any).refreshToken, refreshCookieOptions);
 
             res.status(200).json({
                 success: true,
-                message: 'Token refreshed successfully',
-                data: { token: result.token }
+                message: 'Token refreshed successfully'
             });
         } catch (error: any) {
             const statusCode = error.message.includes('required') ? 400 : 401;
@@ -156,6 +232,39 @@ export class AuthController {
                 success: false,
                 message: error.message
             });
+        }
+    }
+
+    static async me(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user?.id;
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const { logger } = require('../../core/logger');
+                logger.debug('AuthController.me called, userId:', userId);
+            } catch (e) {
+                // ignore
+            }
+            if (!userId) {
+                const body: any = { success: false, message: 'Not authenticated' };
+                if (env.NODE_ENV !== 'production') {
+                    body.debug = { note: 'No userId available on request (authenticate likely did not find a token)' };
+                }
+                return res.status(401).json(body);
+            }
+
+            const user = await UsersRepository.findById(userId as string);
+            if (!user) {
+                const body: any = { success: false, message: 'User not found' };
+                if (env.NODE_ENV !== 'production') {
+                    body.debug = { missingUserId: userId };
+                }
+                return res.status(404).json(body);
+            }
+
+            return res.status(200).json({ success: true, data: { user } });
+        } catch (error: any) {
+            return res.status(500).json({ success: false, message: 'Failed to fetch user' });
         }
     }
 }

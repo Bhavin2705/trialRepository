@@ -14,6 +14,7 @@ export interface ISession extends Document {
     questions: any[];
     recording?: any;
     analysis?: any;
+    transcript?: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -64,6 +65,9 @@ const sessionSchema = new Schema({
         feedback: String,
         score: Number
     }],
+    company: String,
+    role: String,
+    jobDescription: String,
     recording: {
         filename: String,
         path: String,
@@ -79,6 +83,8 @@ const sessionSchema = new Schema({
         communicationScore: Number,
         confidenceScore: Number
     }
+    ,
+    transcript: String
 }, {
     timestamps: true
 });

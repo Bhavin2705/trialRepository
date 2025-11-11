@@ -1,4 +1,5 @@
 import compression from 'compression';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express, { Express, NextFunction, Request, Response } from 'express';
 import mongoSanitize from 'express-mongo-sanitize';
@@ -42,6 +43,9 @@ class App {
             origin: env.ALLOWED_ORIGINS,
             credentials: true
         }));
+
+        // parse cookies for auth flows
+        this.app.use(cookieParser());
 
         this.app.use(express.json({ limit: '10mb' }));
         this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));

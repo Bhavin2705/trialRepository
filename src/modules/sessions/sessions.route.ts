@@ -15,5 +15,8 @@ router.delete('/:id', SessionsController.deleteSession);
 router.post('/:id/start', SessionsController.startSession);
 router.post('/:id/end', SessionsController.endSession);
 router.get('/:id/analysis', SessionsController.getAnalysis);
+router.post('/:id/transcript', SessionsController.uploadTranscript);
+router.post('/:id/analyze', SessionsController.requestAnalysis);
+router.post('/:id/ask', SessionsController.askQuestion);
 
 export default router;

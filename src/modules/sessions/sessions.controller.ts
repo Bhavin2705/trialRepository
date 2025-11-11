@@ -161,4 +161,39 @@ export class SessionsController {
             });
         }
     }
+
+    static async uploadTranscript(req: Request, res: Response) {
+        try {
+            const { id } = req.params
+            const userId = (req as any).user?.id
+            const { transcript } = req.body
+            const result = await SessionsService.storeTranscript(id, userId, transcript)
+            res.status(200).json({ success: true, data: result })
+        } catch (error: any) {
+            res.status(400).json({ success: false, message: error.message })
+        }
+    }
+
+    static async requestAnalysis(req: Request, res: Response) {
+        try {
+            const { id } = req.params
+            const userId = (req as any).user?.id
+            const result = await SessionsService.generateAnalysis(id, userId)
+            res.status(200).json({ success: true, data: result })
+        } catch (error: any) {
+            res.status(400).json({ success: false, message: error.message })
+        }
+    }
+
+    static async askQuestion(req: Request, res: Response) {
+        try {
+            const { id } = req.params
+            const userId = (req as any).user?.id
+            const { prompt } = req.body
+            const result = await SessionsService.generateFollowUp(id, userId, prompt)
+            res.status(200).json({ success: true, data: result })
+        } catch (error: any) {
+            res.status(400).json({ success: false, message: error.message })
+        }
+    }
 }

@@ -35,11 +35,14 @@ export class SessionsService {
             return {
                 sessions: sessions.map((session: any) => ({
                     id: session._id,
+                    userId: session.userId,
                     title: session.title,
                     description: session.description,
                     type: session.type,
                     difficulty: session.difficulty,
                     status: session.status,
+                    startedAt: session.startedAt,
+                    endedAt: session.endedAt,
                     createdAt: session.createdAt,
                     updatedAt: session.updatedAt,
                     duration: session.duration,
@@ -182,6 +185,46 @@ export class SessionsService {
             communicationScore: session.analysis.communicationScore,
             confidenceScore: session.analysis.confidenceScore
         };
+    }
+
+    static async storeTranscript(sessionId: string, userId: string, transcript: string) {
+        const session = await SessionsRepository.findByIdAndUserId(sessionId, userId)
+        if (!session) throw new Error('Session not found')
+        await SessionsRepository.updateById(sessionId, { transcript })
+        return { sessionId, transcript }
+    }
+
+    static async generateAnalysis(sessionId: string, userId: string) {
+        const session = await SessionsRepository.findByIdAndUserId(sessionId, userId)
+        if (!session) throw new Error('Session not found')
+        const transcript = session.transcript || ''
+        // call OpenRouter/OpenAI via fetch
+        const axios = require('axios')
+        const { env } = require('../../core/env')
+        const prompt = `You are an interviewer assistant. Provide concise feedback, strengths, improvements and 3 follow-up questions for the candidate based on the transcript: ${transcript}`
+        const resp = await axios.post(env.OPENROUTER_BASE_URL + '/chat/completions', {
+            model: process.env.OPENAI_MODEL || 'openai/gpt-3.5-turbo',
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 800
+        }, { headers: { Authorization: `Bearer ${env.OPENROUTER_API_KEY}` } })
+        const analysis = { raw: resp.data, summary: resp.data?.choices?.[0]?.message?.content }
+        await SessionsRepository.updateById(sessionId, { analysis })
+        return { sessionId, analysis }
+    }
+
+    static async generateFollowUp(sessionId: string, userId: string, promptText: string) {
+        const session = await SessionsRepository.findByIdAndUserId(sessionId, userId)
+        if (!session) throw new Error('Session not found')
+        const axios = require('axios')
+        const { env } = require('../../core/env')
+        const prompt = `You are an interviewer. Based on the transcript: ${session.transcript || ''}. ${promptText || 'Ask a concise follow-up question to probe deeper.'}`
+        const resp = await axios.post(env.OPENROUTER_BASE_URL + '/chat/completions', {
+            model: process.env.OPENAI_MODEL || 'openai/gpt-3.5-turbo',
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 200
+        }, { headers: { Authorization: `Bearer ${env.OPENROUTER_API_KEY}` } })
+        const question = resp.data?.choices?.[0]?.message?.content
+        return { question, raw: resp.data }
     }
 }
 

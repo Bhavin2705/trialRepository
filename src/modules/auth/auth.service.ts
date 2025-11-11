@@ -1,4 +1,4 @@
-import { generateToken, verifyToken } from '../../shared/utils/jwt';
+import { generateRefreshToken, generateToken, verifyRefreshToken } from '../../shared/utils/jwt';
 import { comparePassword, hashPassword } from '../../shared/utils/password';
 import AuthRepository from './auth.repo';
 
@@ -23,6 +23,14 @@ export class AuthService {
                 email: user.email
             });
 
+            const refreshToken = generateRefreshToken({
+                userId: user._id,
+                email: user.email
+            });
+
+            // persist refresh token
+            await AuthRepository.addRefreshToken(user._id as string, refreshToken);
+
             return {
                 user: {
                     id: user._id,
@@ -30,7 +38,8 @@ export class AuthService {
                     displayName: user.displayName,
                     isEmailVerified: user.isEmailVerified
                 },
-                token
+                token,
+                refreshToken
             };
         } catch (error: any) {
             throw new Error(error.message || 'Registration failed');
@@ -53,6 +62,14 @@ export class AuthService {
             email: user.email
         });
 
+        const refreshToken = generateRefreshToken({
+            userId: user._id,
+            email: user.email
+        });
+
+        // persist refresh token
+        await AuthRepository.addRefreshToken(user._id as string, refreshToken);
+
         return {
             user: {
                 id: user._id,
@@ -60,7 +77,8 @@ export class AuthService {
                 displayName: user.displayName,
                 isEmailVerified: user.isEmailVerified
             },
-            token
+            token,
+            refreshToken
         };
     }
 
@@ -118,6 +136,13 @@ export class AuthService {
             email: updatedUser.email
         });
 
+        const refreshToken = generateRefreshToken({
+            userId: updatedUser._id,
+            email: updatedUser.email
+        });
+
+        await AuthRepository.addRefreshToken(updatedUser._id as string, refreshToken);
+
         return {
             user: {
                 id: updatedUser._id,
@@ -125,7 +150,8 @@ export class AuthService {
                 displayName: updatedUser.displayName,
                 isEmailVerified: updatedUser.isEmailVerified
             },
-            token: authToken
+            token: authToken,
+            refreshToken
         };
     }
 
@@ -134,7 +160,7 @@ export class AuthService {
             throw new Error('Refresh token required');
         }
 
-        const decoded = verifyToken(refreshToken);
+        const decoded = verifyRefreshToken(refreshToken);
         if (!decoded) {
             throw new Error('Invalid refresh token');
         }
@@ -144,12 +170,27 @@ export class AuthService {
             throw new Error('User not found');
         }
 
+        // ensure this refresh token exists for user (not revoked)
+        const storedTokens = (user as any).refreshTokens || [];
+        if (!storedTokens.includes(refreshToken)) {
+            throw new Error('Refresh token revoked');
+        }
+
         const newToken = generateToken({
             userId: user._id,
             email: user.email
         });
 
-        return { token: newToken };
+        const newRefreshToken = generateRefreshToken({
+            userId: user._id,
+            email: user.email
+        });
+
+        // rotate tokens: add new, remove old
+        await AuthRepository.addRefreshToken(user._id as string, newRefreshToken);
+        await AuthRepository.removeRefreshToken(user._id as string, refreshToken);
+
+        return { token: newToken, refreshToken: newRefreshToken };
     }
 }
 

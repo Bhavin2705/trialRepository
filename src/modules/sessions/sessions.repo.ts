@@ -1,13 +1,7 @@
 import { ISession, Session } from '../../shared/models/Session';
 
 export class SessionsRepository {
-    static async create(sessionData: {
-        userId: string;
-        title: string;
-        description?: string;
-        type: 'technical' | 'behavioral' | 'mixed';
-        difficulty: 'easy' | 'medium' | 'hard';
-    }): Promise<ISession> {
+    static async create(sessionData: Partial<ISession> & { userId: string; title: string }): Promise<ISession> {
         try {
             const session = new Session({
                 ...sessionData,
